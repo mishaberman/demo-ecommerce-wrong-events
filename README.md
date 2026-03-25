@@ -1,64 +1,72 @@
-# demo-ecommerce-wrong-events
+# demo-ecommerce-wrong-events <img src="https://img.shields.io/badge/Grade-F-red" alt="Grade F" />
 
-## Overview
-This variant demonstrates a scenario where Meta Pixel and Conversions API (CAPI) events are implemented, but the event names are swapped. For example, the code for a `ViewContent` event actually fires an `AddToCart` event, and vice-versa. This is part of a collection of demo e-commerce sites that showcase different levels of Meta Pixel and Conversions API (CAPI) implementation quality. Each variant is deployed on GitHub Pages.
+This e-commerce demonstration variant is designed to illustrate a critical and common implementation error: sending incorrect event names via the Conversions API (CAPI). While the Meta Pixel fires the standard, correct event names, the corresponding CAPI events are sent with non-standard names (e.g., `AddCart` instead of `AddToCart`). This completely breaks the event deduplication process, leading to inflated event counts and an inability for Meta to reconcile browser and server signals. The variant also showcases other severe issues, including sending unhashed user data, exposing the access token in client-side code, and using incorrect currency codes.
 
-**Live Site:** https://mishaberman.github.io/demo-ecommerce-wrong-events/
-**Quality Grade:** F
+### Quick Facts
 
-## Meta Pixel Setup
+| Category | Details |
+| --- | --- |
+| **Pixel ID** | `1684145446350033` |
+| **CAPI Method** | Client-side direct HTTP |
+| **Grade** | F (Failing) |
+| **Live Site URL** | [https://mishaberman.github.io/demo-ecommerce-wrong-events/](https://mishaberman.github.io/demo-ecommerce-wrong-events/) |
+| **GitHub Repo** | [https://github.com/mishaberman/demo-ecommerce-wrong-events](https://github.com/mishaberman/demo-ecommerce-wrong-events) |
 
-### Base Pixel Code
-- **Pixel ID:** `1684145446350033`
-- **Location:** Loaded in the `<head>` tag of `index.html`.
-- **Noscript Fallback:** The `<noscript>` tag is included to capture traffic from browsers with JavaScript disabled.
+### What's Implemented
 
-### Advanced Matching
-- **Implementation:** Advanced Matching is partially implemented, with only the `em` (email) parameter passed in the `fbq('init', ...)` call.
-- **Issues:** No other user data fields are collected or passed. The email is sent in plaintext (raw PII).
+- `✓` Event deduplication parameter (`event_id`) is generated and sent with both Pixel and CAPI events.
+- `✓` Data Processing Options (DPO) for CCPA are included in CAPI payloads.
 
-## Conversions API (CAPI) Setup
+### What's Missing or Broken
 
-### Method
-- **Method:** This variant uses a client-side direct HTTP method to send CAPI events.
-- **Implementation Details:**
-    - Events are sent via `fetch` requests directly to the Graph API endpoint (`https://graph.facebook.com/v13.0/PIXEL_ID/events`).
-    - The `access_token` is exposed in the client-side JavaScript code.
-    - Only the `em` (email) field is sent in the `user_data` object.
-    - PII is not hashed; the email is sent in plaintext.
-    - `data_processing_options` are not included.
+- `✗` **CRITICAL:** CAPI event names do not match standard event names (`AddCart` vs. `AddToCart`, `Checkout` vs. `InitiateCheckout`, `Buy` vs. `Purchase`).
+- `✗` **CRITICAL:** The currency code is sent incorrectly as `US` instead of the ISO 4217 standard `USD`.
+- `✗` **CRITICAL:** The user's email address is sent in plaintext (unhashed) in CAPI payloads, which is a major privacy and policy violation.
+- `✗` **CRITICAL:** The Meta access token is exposed directly in the client-side JavaScript, posing a severe security risk.
+- `✗` The `Purchase` event value is a hardcoded, incorrect amount.
+- `✗` The standard `Search` event is not implemented anywhere on the site.
 
-## Events Tracked
+### Event Coverage
 
-| Event Name | Pixel | CAPI | Parameters Sent | event_id |
-|---|---|---|---|---|
-| ViewContent | Yes | Yes | Mismatched (sends AddToCart params) | Yes |
-| AddToCart | Yes | Yes | Mismatched (sends ViewContent params) | Yes |
-| InitiateCheckout | Yes | Yes | Mismatched | No |
-| Purchase | Yes | Yes | Mismatched (sends Lead params) | Yes |
-| Lead | Yes | Yes | Mismatched (sends Purchase params) | Yes |
-| CompleteRegistration | Yes | Yes | Mismatched | No |
-| Contact | Yes | Yes | Mismatched | No |
+| Event | Pixel Fires | CAPI Fires | Notes |
+| --- | :---: | :---: | --- |
+| `ViewContent` | ✓ | ✓ | CAPI event name is correct. |
+| `AddToCart` | ✓ | ✗ | CAPI sends as `AddCart`. |
+| `InitiateCheckout` | ✓ | ✗ | CAPI sends as `Checkout`. |
+| `Purchase` | ✓ | ✗ | CAPI sends as `Buy`. |
+| `Lead` | ✓ | ✓ | CAPI event name is correct. |
+| `CompleteRegistration` | ✓ | ✓ | CAPI event name is correct. |
+| `Search` | ✗ | ✗ | Event is not implemented. |
 
-## Event Deduplication
-- **`event_id` Generation:** An `event_id` is generated for some events.
-- **Implementation:** The `event_id` is passed to both the Pixel (`eventID` option) and CAPI (`event_id` field).
-- **Status:** Deduplication is broken because the event names are swapped. Even with the same `event_id`, the events do not match and are therefore not deduplicated.
+### Parameter Completeness
 
-## Custom Data
-- **Custom Data:** No `custom_data` fields are sent with events.
-- **Custom Events:** No custom events are tracked.
+This table indicates which parameters are sent with each event. Note that while parameters are sent, their values may be incorrect (e.g., `currency`).
 
-## Known Issues
-- **Swapped Event Names:** The primary issue is that the event names are swapped in the implementation (e.g., `ViewContent` triggers an `AddToCart` event).
-- **Exposed Access Token:** The CAPI `access_token` is exposed in the client-side code, which is a major security risk.
-- **Raw PII:** The user's email is sent in plaintext without hashing.
-- **Incomplete Advanced Matching:** Only the email is used for Advanced Matching.
+| Event | `content_type` | `content_ids` | `value` | `currency` | `content_name` | `num_items` | `em` (unhashed) |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `ViewContent` | ✓ | ✓ | | | ✓ | | |
+| `AddToCart` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `InitiateCheckout` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `Purchase` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `Lead` | | | | | | | ✓ |
+| `CompleteRegistration` | | | ✓ | ✓ | | | ✓ |
 
-## Security Considerations
-- **Access Token:** The Meta CAPI access token is exposed in the client-side JavaScript, making it vulnerable to theft and misuse.
-- **PII Hashing:** Personal Identifiable Information (PII) is not hashed before being sent to Meta, which is a privacy and security concern.
-- **Privacy Compliance:** No data processing options (e.g., for CCPA/GDPR) are included in the CAPI payloads.
+### Architecture
 
----
-*This variant is part of the [Meta Pixel Quality Variants](https://github.com/mishaberman) collection for testing and educational purposes.*
+This variant uses a purely client-side architecture. All tracking logic is contained within the browser.
+
+1.  **Meta Pixel:** The standard `fbevents.js` library is loaded and fires events as the user navigates the site and takes actions.
+2.  **Conversions API (CAPI):** Immediately after a Pixel event is fired, a corresponding CAPI event is sent via a direct HTTP POST request from the user's browser to the Graph API endpoint (`graph.facebook.com`). This is **not** a recommended architecture, as it requires exposing the access token on the client.
+
+The fundamental flaw is that the JavaScript function responsible for sending CAPI events uses incorrect event names, preventing Meta from matching them to the correct Pixel events for deduplication.
+
+### How to Use This Variant
+
+To observe the broken implementation:
+
+1.  Navigate to the [live site](https://mishaberman.github.io/demo-ecommerce-wrong-events/).
+2.  Open your browser's Developer Tools and go to the **Network** tab.
+3.  Filter for requests containing `facebook.com/tr/` to see the Pixel events.
+4.  Add an item to the cart. You will see a correctly named `AddToCart` Pixel event.
+5.  Now, filter for `graph.facebook.com` to see the CAPI requests.
+6.  Observe the payload for the corresponding CAPI event. You will see that the `event_name` is `AddCart`, the `currency` is `US`, and the `em` (email) field contains an unhashed email address. You can also find the exposed `access_token` in the page source.
