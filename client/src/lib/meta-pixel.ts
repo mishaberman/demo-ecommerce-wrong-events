@@ -22,6 +22,14 @@ declare global {
 const PIXEL_ID = '1684145446350033';
 const ACCESS_TOKEN = 'EAAEDq1LHx1gBRPAEq5cUOKS5JrrvMif65SN8ysCUrX5t0SUZB3ETInM6Pt71VHea0bowwEehinD0oZAeSmIPWivziiVu0FuEIcsmgvT3fiqZADKQDiFgKdsugONbJXELgvLuQxHT0krELKt3DPhm0EyUa44iXu8uaZBZBddgVmEnFdNMBmsWmYJdOT17DTitYKwZDZD';
 
+/** Read test_event_code from URL param (e.g. ?test_event_code=TEST12345) */
+function getTestEventCode(): string | null {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('test_event_code');
+  } catch { return null; }
+}
+
 function generateEventId(): string {
   return 'eid_' + crypto.randomUUID();
 }
@@ -198,8 +206,14 @@ function sendCAPIEvent(eventName: string, eventData: Record<string, unknown>, ev
     access_token: ACCESS_TOKEN,
   };
 
+  // Include test_event_code if present in URL params
+  const testEventCode = getTestEventCode();
+  if (testEventCode) {
+    (payload as Record<string, unknown>).test_event_code = testEventCode;
+  }
+
   const endpoint = `https://graph.facebook.com/v18.0/${PIXEL_ID}/events`;
-  console.log(`[CAPI] Sending ${eventName} (event may be WRONG for this page context) — payload:`, JSON.parse(JSON.stringify(payload)));
+  console.log(`[CAPI] Sending ${eventName} (event may be WRONG for this page context)${testEventCode ? ` [TEST: ${testEventCode}]` : ''} — payload:`, JSON.parse(JSON.stringify(payload)));
   fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
